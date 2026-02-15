@@ -6,7 +6,8 @@ import {
     getProjectById,
     updateProject,
     deleteProject,
-    addMember
+    addMember,
+    removeMember
 } from '../controller/project.controller.js';
 
 const router = express.Router();
@@ -49,6 +50,13 @@ router.post(
     verifyToken,
     authorizeRoles('Admin', 'Team Leader'),
     addMember
+);
+
+router.delete(
+    '/:id/members',
+    verifyToken,
+    authorizeRoles('Admin', 'Team Leader'),
+    removeMember
 );
 
 export default router;

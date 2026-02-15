@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import api from "../../lib/axios";
 
 export default function CreateTaskModal({ isOpen, onClose, projectId, projectMembers, onTaskCreated }) {
@@ -9,8 +9,21 @@ export default function CreateTaskModal({ isOpen, onClose, projectId, projectMem
         description: "",
         priority: "medium",
         dueDate: "",
-        assignee: ""
+        assignedTo: ""
     });
+
+    // Reset form when modal opens
+    useEffect(() => {
+        if (isOpen) {
+            setFormData({
+                title: "",
+                description: "",
+                priority: "medium",
+                dueDate: "",
+                assignedTo: ""
+            });
+        }
+    }, [isOpen]);
 
     const handleSubmit = async (e) => {
         e.preventDefault();

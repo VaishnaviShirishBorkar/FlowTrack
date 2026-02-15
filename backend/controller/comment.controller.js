@@ -1,6 +1,7 @@
 import Comment from '../models/Comment.js';
 import Task from '../models/Task.js';
 import Activity from '../models/Activity.js';
+import { createNotification } from './notification.controller.js';
 
 export const createComment = async (req, res) => {
     try {
@@ -50,6 +51,19 @@ export const createComment = async (req, res) => {
         io.to(`project-${projectId}`).emit('new-activity', populatedActivity);
 
         res.status(201).json(populatedComment);
+
+        // Notify task assignee about the comment (after responding)
+        const assigneeId = task.assignedTo;
+        if (assigneeId && assigneeId.toString() !== req.user._id.toString()) {
+            await createNotification(io, {
+                recipientId: assigneeId,
+                type: 'comment_added',
+                title: 'New Comment',
+                message: `${req.user.name} commented on "${task.title}"`,
+                projectId,
+                taskId
+            });
+        }
     } catch (error) {
         console.error("Error creating comment:", error);
         res.status(500).json({ message: "Server error" });

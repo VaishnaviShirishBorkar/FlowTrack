@@ -11,6 +11,8 @@ import taskRoutes from './routes/task.routes.js';
 import userRoutes from './routes/user.routes.js';
 import commentRoutes from './routes/comment.routes.js';
 import activityRoutes from './routes/activity.routes.js';
+import notificationRoutes from './routes/notification.routes.js';
+import searchRoutes from './routes/search.routes.js';
 
 dotenv.config();
 
@@ -50,6 +52,12 @@ mongoose.connect(process.env.MONGO_URI)
 io.on('connection', (socket) => {
     console.log('Client connected:', socket.id);
 
+    // Join user's personal room for notifications
+    socket.on('join-user', (userId) => {
+        socket.join(`user-${userId}`);
+        console.log(`Socket ${socket.id} joined user-${userId}`);
+    });
+
     socket.on('join-project', (projectId) => {
         socket.join(`project-${projectId}`);
         console.log(`Socket ${socket.id} joined project-${projectId}`);
@@ -71,5 +79,7 @@ app.use("/api/tasks", taskRoutes);
 app.use("/api/users", userRoutes);
 app.use("/api/comments", commentRoutes);
 app.use("/api/activities", activityRoutes);
+app.use("/api/notifications", notificationRoutes);
+app.use("/api/search", searchRoutes);
 
 httpServer.listen(5000, () => console.log('Server running on 5000'));

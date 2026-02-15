@@ -23,6 +23,13 @@ export default function Sidebar() {
         if (user) {
             fetchProjects();
         }
+
+        // Listen for sidebar refresh events (e.g., after project delete)
+        const handleRefresh = () => {
+            if (user) fetchProjects();
+        };
+        window.addEventListener("sidebar-refresh", handleRefresh);
+        return () => window.removeEventListener("sidebar-refresh", handleRefresh);
     }, [user]);
 
     const isActive = (path) => pathname === path;
@@ -64,10 +71,18 @@ export default function Sidebar() {
             </div>
 
             <div className="p-4 border-t border-gray-700">
-                <div className="mb-4 px-2">
-                    <div className="text-sm font-medium text-white">{user?.name}</div>
-                    <div className="text-xs text-gray-400 capitalize">{user?.role?.replace('_', ' ')}</div>
-                </div>
+                <Link
+                    href="/dashboard/profile"
+                    className={`flex items-center gap-3 p-2 rounded-lg mb-2 transition-colors ${isActive('/dashboard/profile') ? 'bg-gray-700 text-white' : 'text-gray-400 hover:bg-gray-700 hover:text-white'}`}
+                >
+                    <div className="w-8 h-8 rounded-full bg-gradient-to-br from-blue-500 to-purple-600 flex items-center justify-center text-white text-xs font-bold flex-shrink-0">
+                        {user?.name?.charAt(0)?.toUpperCase() || "U"}
+                    </div>
+                    <div className="min-w-0">
+                        <div className="text-sm font-medium text-white truncate">{user?.name}</div>
+                        <div className="text-xs text-gray-400 capitalize">{user?.role?.replace('_', ' ')}</div>
+                    </div>
+                </Link>
                 <button
                     onClick={logout}
                     className="w-full p-2 text-left text-red-400 hover:bg-gray-700 rounded-lg transition-colors text-sm flex items-center gap-2"

@@ -1,6 +1,7 @@
 import Task from '../models/Task.js';
 import Project from '../models/Project.js';
 import { logActivity } from './activity.controller.js';
+import { createNotification } from './notification.controller.js';
 
 export const getDashboardStats = async (req, res) => {
     try {
@@ -9,19 +10,24 @@ export const getDashboardStats = async (req, res) => {
 
         let projects;
         if (role === 'Admin') {
-            projects = await Project.find({}, '_id');
+            projects = await Project.find({}).populate('members', 'name');
         } else {
             projects = await Project.find({
                 $or: [{ owner: userId }, { members: userId }]
-            }, '_id');
+            }).populate('members', 'name');
         }
 
         const projectIds = projects.map(p => p._id);
 
-        const tasks = await Task.find({ project: { $in: projectIds } });
+        const tasks = await Task.find({ project: { $in: projectIds } })
+            .populate('assignedTo', 'name email')
+            .populate('project', 'name');
+
+        const now = new Date();
 
         const stats = {
             totalTasks: tasks.length,
+            totalProjects: projects.length,
             byPriority: {
                 urgent: tasks.filter(t => t.priority === 'urgent').length,
                 high: tasks.filter(t => t.priority === 'high').length,
@@ -33,22 +39,50 @@ export const getDashboardStats = async (req, res) => {
                 in_progress: tasks.filter(t => t.status === 'in_progress').length,
                 review: tasks.filter(t => t.status === 'review').length,
                 done: tasks.filter(t => t.status === 'done').length,
-            }
+            },
+            overdue: tasks.filter(t => t.dueDate && new Date(t.dueDate) < now && t.status !== 'done').length,
+            completionRate: tasks.length > 0
+                ? Math.round((tasks.filter(t => t.status === 'done').length / tasks.length) * 100)
+                : 0,
         };
 
-        // Also return recent tasks assigned to user
+        // Per-project breakdown
+        const projectBreakdown = projects.map(p => {
+            const projTasks = tasks.filter(t =>
+                (t.project?._id || t.project)?.toString() === p._id.toString()
+            );
+            return {
+                name: p.name,
+                _id: p._id,
+                memberCount: p.members?.length || 0,
+                total: projTasks.length,
+                done: projTasks.filter(t => t.status === 'done').length,
+                todo: projTasks.filter(t => t.status === 'todo').length,
+                in_progress: projTasks.filter(t => t.status === 'in_progress').length,
+                review: projTasks.filter(t => t.status === 'review').length,
+            };
+        });
+
+        // Recent tasks assigned to user
         const myTasks = await Task.find({ assignedTo: userId })
             .sort({ dueDate: 1 })
             .limit(5)
             .populate('project', 'name');
 
-        res.json({ stats, myTasks });
+        // Upcoming deadlines (next 7 days)
+        const upcomingDeadlines = tasks
+            .filter(t => t.dueDate && new Date(t.dueDate) >= now && t.status !== 'done')
+            .sort((a, b) => new Date(a.dueDate) - new Date(b.dueDate))
+            .slice(0, 6);
+
+        res.json({ stats, myTasks, projectBreakdown, upcomingDeadlines });
 
     } catch (error) {
         console.error("Error fetching dashboard stats:", error);
         res.status(500).json({ message: "Server error" });
     }
 };
+
 
 export const createTask = async (req, res) => {
     try {
@@ -86,6 +120,18 @@ export const createTask = async (req, res) => {
             projectId,
             details: `${req.user.name} created task "${title}"`
         });
+
+        // Notify assignee
+        if (assignedTo && assignedTo.toString() !== req.user._id.toString()) {
+            await createNotification(io, {
+                recipientId: assignedTo,
+                type: 'task_assigned',
+                title: 'New Task Assigned',
+                message: `${req.user.name} assigned you the task "${title}"`,
+                projectId,
+                taskId: task._id
+            });
+        }
 
         res.status(201).json(task);
     } catch (error) {
@@ -160,6 +206,19 @@ export const updateTask = async (req, res) => {
                 projectId,
                 details: `${req.user.name} moved "${task.title}" from ${statusNames[oldStatus] || oldStatus} to ${statusNames[updates.status] || updates.status}`
             });
+
+            // Notify assignee about status change
+            const assigneeId = updatedTask.assignedTo?._id || updatedTask.assignedTo;
+            if (assigneeId && assigneeId.toString() !== req.user._id.toString()) {
+                await createNotification(io, {
+                    recipientId: assigneeId,
+                    type: 'task_status_changed',
+                    title: 'Task Status Updated',
+                    message: `${req.user.name} moved "${task.title}" to ${statusNames[updates.status] || updates.status}`,
+                    projectId,
+                    taskId: task._id
+                });
+            }
         } else {
             await logActivity(io, {
                 action: 'updated_task',
@@ -168,6 +227,19 @@ export const updateTask = async (req, res) => {
                 projectId,
                 details: `${req.user.name} updated task "${task.title}"`
             });
+
+            // Notify assignee about task update
+            const assigneeId = updatedTask.assignedTo?._id || updatedTask.assignedTo;
+            if (assigneeId && assigneeId.toString() !== req.user._id.toString()) {
+                await createNotification(io, {
+                    recipientId: assigneeId,
+                    type: 'task_updated',
+                    title: 'Task Updated',
+                    message: `${req.user.name} updated task "${task.title}"`,
+                    projectId,
+                    taskId: task._id
+                });
+            }
         }
 
         res.status(200).json(updatedTask);
@@ -199,9 +271,17 @@ export const deleteTask = async (req, res) => {
             details: `${req.user.name} deleted task "${task.title}"`
         });
 
+        // Cascade delete associated comments and notifications
+        const Comment = (await import('../models/Comment.js')).default;
+        const Notification = (await import('../models/Notification.js')).default;
+        await Comment.deleteMany({ task: taskId });
+        await Notification.deleteMany({ task: taskId });
+
         await Task.findByIdAndDelete(taskId);
         res.status(200).json({ message: "Task deleted successfully" });
     } catch (error) {
+        console.error("Error deleting task:", error);
         res.status(500).json({ message: "Server error" });
     }
 };
+
