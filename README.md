@@ -263,9 +263,3 @@ The frontend runs on `http://localhost:3001`.
 | `new-comment` | Server → Client | New comment on a task |
 | `new-activity` | Server → Client | New project activity |
 | `new-notification` | Server → Client | New notification for user |
-
----
-
-## 📄 License
-
-This project is licensed under the ISC License.
