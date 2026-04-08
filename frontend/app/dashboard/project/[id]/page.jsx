@@ -4,6 +4,7 @@ import { useEffect, useState, useMemo } from "react";
 import api from "../../../../lib/axios";
 import { useParams, useRouter } from "next/navigation";
 import { connectSocket, disconnectSocket, getSocket } from "../../../../lib/socket";
+import { useAuth } from "../../../../context/AuthContext";
 import AddMemberModal from "../../../../components/project/AddMemberModal";
 import CreateTaskModal from "../../../../components/project/CreateTaskModal";
 import TaskDetailModal from "../../../../components/project/TaskDetailModal";
@@ -16,6 +17,7 @@ import ActivityFeed from "../../../../components/project/ActivityFeed";
 export default function ProjectPage() {
     const { id } = useParams();
     const router = useRouter();
+    const { user } = useAuth();
 
     const [project, setProject] = useState(null);
     const [tasks, setTasks] = useState([]);
@@ -44,6 +46,10 @@ export default function ProjectPage() {
             console.log('projectres ', project);
         } catch (error) {
             console.error("Error fetching project data:", error);
+            if (error.response?.status === 403 || error.response?.status === 404) {
+                window.dispatchEvent(new Event("sidebar-refresh"));
+                router.push("/dashboard");
+            }
         } finally {
             setLoading(false);
         }
@@ -82,6 +88,19 @@ export default function ProjectPage() {
     }, [tasks, filterStatus, filterPriority, filterAssignee]);
 
     const activeFilterCount = [filterStatus, filterPriority, filterAssignee].filter(Boolean).length;
+    const currentUserId = user?._id || user?.id;
+    const ownerId = project?.owner?._id || project?.owner;
+    const isProjectOwner = !!currentUserId && !!ownerId && currentUserId.toString() === ownerId.toString();
+    const currentProjectMember = project?.members?.find(
+        (member) => member._id?.toString() === currentUserId?.toString()
+    );
+    const currentProjectRole = isProjectOwner
+        ? "Team Leader"
+        : currentProjectMember?.role || "Team Member";
+    const canManageTasks = user?.role === "Admin" || currentProjectRole === "Team Leader";
+    const canMoveTasks = canManageTasks || currentProjectRole === "Team Member";
+    const canManageMembers = isProjectOwner;
+    const canDeleteProject = isProjectOwner;
 
     const clearFilters = () => {
         setFilterStatus("");
@@ -166,13 +185,18 @@ export default function ProjectPage() {
                             {project.members.map(member => (
                                 <div
                                     key={member._id}
-                                    className="bg-gray-700 px-3 py-1 rounded-full text-sm text-white flex items-center gap-1.5 group"
+                                    className="bg-gray-700 px-3 py-2 rounded-xl text-sm text-white flex items-start gap-2 group"
                                 >
-                                    {member.name}
-                                    {project.owner !== member._id && (
+                                    <div className="leading-tight">
+                                        <div>{member.name}</div>
+                                        <div className="text-[11px] text-gray-400">
+                                            {member.role || "Team Member"}
+                                        </div>
+                                    </div>
+                                    {canManageMembers && ownerId?.toString() !== member._id?.toString() && (
                                         <button
                                             onClick={() => handleRemoveMember(member._id, member.name)}
-                                            className="text-gray-500 hover:text-red-400 transition opacity-0 group-hover:opacity-100 ml-0.5"
+                                            className="text-gray-500 hover:text-red-400 transition opacity-0 group-hover:opacity-100 ml-1 self-start"
                                             title={`Remove ${member.name}`}
                                         >
                                             ✕
@@ -183,24 +207,30 @@ export default function ProjectPage() {
                         </div>
                     </div>
                     <div className="flex gap-2 flex-shrink-0">
-                        <button
-                            onClick={() => setIsTaskModalOpen(true)}
-                            className="bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded-lg transition text-sm"
-                        >
-                            + New Task
-                        </button>
-                        <button
-                            onClick={() => setIsMemberModalOpen(true)}
-                            className="bg-gray-700 hover:bg-gray-600 text-white px-4 py-2 rounded-lg transition text-sm"
-                        >
-                            Add Member
-                        </button>
-                        <button
-                            onClick={() => setShowDeleteProjectConfirm(true)}
-                            className="bg-red-900/30 hover:bg-red-900/60 text-red-400 hover:text-red-300 px-4 py-2 rounded-lg transition text-sm border border-red-900/40"
-                        >
-                            Delete Project
-                        </button>
+                        {canManageTasks && (
+                            <button
+                                onClick={() => setIsTaskModalOpen(true)}
+                                className="bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded-lg transition text-sm"
+                            >
+                                + New Task
+                            </button>
+                        )}
+                        {canManageMembers && (
+                            <button
+                                onClick={() => setIsMemberModalOpen(true)}
+                                className="bg-gray-700 hover:bg-gray-600 text-white px-4 py-2 rounded-lg transition text-sm"
+                            >
+                                Add Member
+                            </button>
+                        )}
+                        {canDeleteProject && (
+                            <button
+                                onClick={() => setShowDeleteProjectConfirm(true)}
+                                className="bg-red-900/30 hover:bg-red-900/60 text-red-400 hover:text-red-300 px-4 py-2 rounded-lg transition text-sm border border-red-900/40"
+                            >
+                                Delete Project
+                            </button>
+                        )}
                     </div>
                 </div>
 
@@ -250,6 +280,7 @@ export default function ProjectPage() {
                     task={selectedTask}
                     onTaskUpdated={fetchData}
                     projectMembers={project?.members || []}
+                    canEditTask={canManageTasks}
                 />
 
                 {/* Tabs + Filters */}
@@ -327,7 +358,7 @@ export default function ProjectPage() {
 
                 {/* View Content */}
                 <div className="flex-1 overflow-auto">
-                    {activeTab === 'board' && <BoardView tasks={filteredTasks} onTaskStatusChange={handleTaskStatusChange} onTaskClick={handleTaskClick} />}
+                    {activeTab === 'board' && <BoardView tasks={filteredTasks} onTaskStatusChange={handleTaskStatusChange} onTaskClick={handleTaskClick} canEditTask={canMoveTasks} />}
                     {activeTab === 'list' && <ListView tasks={filteredTasks} />}
                     {activeTab === 'timeline' && <TimelineView tasks={filteredTasks} project={project} />}
                     {activeTab === 'table' && <TableView tasks={filteredTasks} />}

@@ -28,8 +28,22 @@ export default function Sidebar() {
         const handleRefresh = () => {
             if (user) fetchProjects();
         };
+        const handleFocus = () => {
+            if (user) fetchProjects();
+        };
+        const handleVisibilityChange = () => {
+            if (!document.hidden && user) {
+                fetchProjects();
+            }
+        };
         window.addEventListener("sidebar-refresh", handleRefresh);
-        return () => window.removeEventListener("sidebar-refresh", handleRefresh);
+        window.addEventListener("focus", handleFocus);
+        document.addEventListener("visibilitychange", handleVisibilityChange);
+        return () => {
+            window.removeEventListener("sidebar-refresh", handleRefresh);
+            window.removeEventListener("focus", handleFocus);
+            document.removeEventListener("visibilitychange", handleVisibilityChange);
+        };
     }, [user]);
 
     const isActive = (path) => pathname === path;

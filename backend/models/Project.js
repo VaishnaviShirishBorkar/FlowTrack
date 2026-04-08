@@ -17,6 +17,20 @@ const projectSchema = new mongoose.Schema({
             ref: 'User'
         }
     ],
+    memberRoles: [
+        {
+            user: {
+                type: mongoose.Schema.Types.ObjectId,
+                ref: 'User',
+                required: true
+            },
+            role: {
+                type: String,
+                enum: ['Team Leader', 'Team Member'],
+                default: 'Team Member'
+            }
+        }
+    ],
     startDate: Date,
     endDate: Date,
     createdAt: {

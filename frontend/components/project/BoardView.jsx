@@ -2,7 +2,7 @@
 
 import { useState } from "react";
 
-export default function BoardView({ tasks, onTaskStatusChange, onTaskClick }) {
+export default function BoardView({ tasks, onTaskStatusChange, onTaskClick, canEditTask = true }) {
     const [draggedTask, setDraggedTask] = useState(null);
     const [dragOverColumn, setDragOverColumn] = useState(null);
 
@@ -14,6 +14,7 @@ export default function BoardView({ tasks, onTaskStatusChange, onTaskClick }) {
     };
 
     const handleDragStart = (e, task) => {
+        if (!canEditTask) return;
         setDraggedTask(task);
         e.dataTransfer.effectAllowed = "move";
         e.target.style.opacity = "0.5";
@@ -26,6 +27,7 @@ export default function BoardView({ tasks, onTaskStatusChange, onTaskClick }) {
     };
 
     const handleDragOver = (e, colId) => {
+        if (!canEditTask) return;
         e.preventDefault();
         e.dataTransfer.dropEffect = "move";
         setDragOverColumn(colId);
@@ -38,6 +40,7 @@ export default function BoardView({ tasks, onTaskStatusChange, onTaskClick }) {
     };
 
     const handleDrop = async (e, newStatus) => {
+        if (!canEditTask) return;
         e.preventDefault();
         setDragOverColumn(null);
 
@@ -81,11 +84,11 @@ export default function BoardView({ tasks, onTaskStatusChange, onTaskClick }) {
                             {columnTasks.map(task => (
                                 <div
                                     key={task._id}
-                                    draggable
+                                    draggable={canEditTask}
                                     onDragStart={(e) => handleDragStart(e, task)}
                                     onDragEnd={handleDragEnd}
                                     onClick={() => onTaskClick && onTaskClick(task)}
-                                    className={`bg-gray-800 p-3 rounded-lg border border-gray-700 hover:border-gray-500 transition cursor-grab active:cursor-grabbing select-none ${draggedTask?._id === task._id ? 'opacity-50' : ''
+                                    className={`bg-gray-800 p-3 rounded-lg border border-gray-700 hover:border-gray-500 transition ${canEditTask ? 'cursor-grab active:cursor-grabbing' : 'cursor-pointer'} select-none ${draggedTask?._id === task._id ? 'opacity-50' : ''
                                         }`}
                                 >
                                     <h4 className="font-medium mb-2">{task.title}</h4>
@@ -107,7 +110,7 @@ export default function BoardView({ tasks, onTaskStatusChange, onTaskClick }) {
                             {columnTasks.length === 0 && (
                                 <div className={`flex items-center justify-center h-20 rounded-lg border-2 border-dashed transition-colors ${isOver ? 'border-gray-500 text-gray-400' : 'border-gray-800 text-gray-600'
                                     }`}>
-                                    <span className="text-sm">Drop tasks here</span>
+                                    <span className="text-sm">{canEditTask ? "Drop tasks here" : "No tasks"}</span>
                                 </div>
                             )}
                         </div>

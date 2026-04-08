@@ -3,6 +3,19 @@ import Project from '../models/Project.js';
 import { logActivity } from './activity.controller.js';
 import { createNotification } from './notification.controller.js';
 
+const getProjectRole = (project, userId, globalRole) => {
+    if (globalRole === 'Admin') return 'Admin';
+
+    const ownerId = (project.owner?._id || project.owner)?.toString();
+    if (ownerId === userId.toString()) return 'Team Leader';
+
+    const projectRole = (project.memberRoles || []).find(
+        (entry) => entry.user?.toString() === userId.toString()
+    )?.role;
+
+    return projectRole || 'Team Member';
+};
+
 export const getDashboardStats = async (req, res) => {
     try {
         const userId = req.user._id;
@@ -19,7 +32,12 @@ export const getDashboardStats = async (req, res) => {
 
         const projectIds = projects.map(p => p._id);
 
-        const tasks = await Task.find({ project: { $in: projectIds } })
+        const taskQuery = { project: { $in: projectIds } };
+        if (role === 'Team Member') {
+            taskQuery.assignedTo = userId;
+        }
+
+        const tasks = await Task.find(taskQuery)
             .populate('assignedTo', 'name email')
             .populate('project', 'name');
 
@@ -64,7 +82,10 @@ export const getDashboardStats = async (req, res) => {
         });
 
         // Recent tasks assigned to user
-        const myTasks = await Task.find({ assignedTo: userId })
+        const myTasks = await Task.find({
+            assignedTo: userId,
+            project: { $in: projectIds }
+        })
             .sort({ dueDate: 1 })
             .limit(5)
             .populate('project', 'name');
@@ -97,6 +118,11 @@ export const createTask = async (req, res) => {
 
         if (!isMember && !isOwner && req.user.role !== 'Admin') {
             return res.status(403).json({ message: "Access denied" });
+        }
+
+        const projectRole = getProjectRole(project, req.user._id, req.user.role);
+        if (projectRole === 'Team Member') {
+            return res.status(403).json({ message: "Team Members cannot create tasks" });
         }
 
         const task = new Task({
@@ -154,7 +180,13 @@ export const getTasks = async (req, res) => {
             return res.status(403).json({ message: "Access denied" });
         }
 
-        const tasks = await Task.find({ project: projectId })
+        const taskQuery = { project: projectId };
+        const projectRole = getProjectRole(project, req.user._id, req.user.role);
+        if (projectRole === 'Team Member') {
+            taskQuery.assignedTo = req.user._id;
+        }
+
+        const tasks = await Task.find(taskQuery)
             .populate('assignedTo', 'name email')
             .populate('project', 'name');
 
@@ -182,6 +214,19 @@ export const updateTask = async (req, res) => {
 
         if (!isMember && !isOwner && req.user.role !== 'Admin') {
             return res.status(403).json({ message: "Access denied" });
+        }
+
+        const projectRole = getProjectRole(project, req.user._id, req.user.role);
+        if (projectRole === 'Team Member') {
+            const allowedKeys = ['status'];
+            const updateKeys = Object.keys(updates);
+            const isOnlyStatusUpdate = updateKeys.length > 0 && updateKeys.every((key) => allowedKeys.includes(key));
+            const assigneeId = (task.assignedTo?._id || task.assignedTo)?.toString();
+            const isAssignedToCurrentUser = assigneeId === req.user._id.toString();
+
+            if (!isOnlyStatusUpdate || !isAssignedToCurrentUser) {
+                return res.status(403).json({ message: "Team Members can only move their own assigned tasks" });
+            }
         }
 
         const oldStatus = task.status;

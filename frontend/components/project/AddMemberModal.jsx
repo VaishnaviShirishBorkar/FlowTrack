@@ -57,6 +57,9 @@ export default function AddMemberModal({ isOpen, onClose, projectId, onMemberAdd
                             <div>
                                 <p className="font-medium">{user.name}</p>
                                 <p className="text-xs text-gray-400">{user.email}</p>
+                                <p className="text-[11px] text-gray-500 mt-0.5">
+                                    Will be added to this project as Team Member
+                                </p>
                             </div>
                             <button
                                 onClick={() => addMember(user._id)}

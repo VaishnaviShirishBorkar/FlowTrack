@@ -77,9 +77,9 @@ export default function RegisterPage() {
               className="w-full px-4 py-2.5 bg-card text-white border rounded-md"
               onChange={(e) => setForm({ ...form, role: e.target.value })}
             >
-              <option className='text-black' value="Admin">Admin</option>
-              <option className='text-black' value="Team Leader">Team Leader</option>
-              <option className='text-black' value="Team Member">Team Member</option>
+              <option className='text-white' value="Admin">Admin</option>
+              <option className='text-white' value="Team Leader">Team Leader</option>
+              <option className='text-white' value="Team Member">Team Member</option>
             </select>
 
             {error && <p className="text-red-400 text-sm">{error}</p>}

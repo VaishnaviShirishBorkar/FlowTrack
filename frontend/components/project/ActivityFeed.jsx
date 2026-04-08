@@ -63,19 +63,15 @@ export default function ActivityFeed({ projectId }) {
         }
     };
 
-    const formatTime = (dateStr) => {
+    const formatTimestamp = (dateStr) => {
         const date = new Date(dateStr);
-        const now = new Date();
-        const diff = now - date;
-        const mins = Math.floor(diff / 60000);
-        if (mins < 1) return "just now";
-        if (mins < 60) return `${mins}m ago`;
-        const hours = Math.floor(mins / 60);
-        if (hours < 24) return `${hours}h ago`;
-        const days = Math.floor(hours / 24);
-        if (days === 1) return "yesterday";
-        if (days < 7) return `${days}d ago`;
-        return date.toLocaleDateString("en-US", { month: "short", day: "numeric" });
+        return date.toLocaleString("en-US", {
+            month: "short",
+            day: "numeric",
+            year: "numeric",
+            hour: "numeric",
+            minute: "2-digit",
+        });
     };
 
     return (
@@ -110,7 +106,7 @@ export default function ActivityFeed({ projectId }) {
                                     {activity.details}
                                 </p>
                                 <p className="text-[10px] text-gray-500 mt-1">
-                                    {formatTime(activity.createdAt)}
+                                    {formatTimestamp(activity.createdAt)}
                                 </p>
                             </div>
                         </div>

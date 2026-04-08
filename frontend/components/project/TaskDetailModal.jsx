@@ -3,7 +3,7 @@
 import { useState, useEffect, useRef } from "react";
 import api from "../../lib/axios";
 
-export default function TaskDetailModal({ isOpen, onClose, task, onTaskUpdated, projectMembers }) {
+export default function TaskDetailModal({ isOpen, onClose, task, onTaskUpdated, projectMembers, canEditTask = true }) {
     const [comments, setComments] = useState([]);
     const [newComment, setNewComment] = useState("");
     const [loading, setLoading] = useState(false);
@@ -204,7 +204,7 @@ export default function TaskDetailModal({ isOpen, onClose, task, onTaskUpdated, 
                         )}
                     </div>
                     <div className="flex items-center gap-2 ml-4">
-                        {!isEditing && (
+                        {!isEditing && canEditTask && (
                             <>
                                 <button
                                     onClick={() => setIsEditing(true)}
@@ -238,7 +238,7 @@ export default function TaskDetailModal({ isOpen, onClose, task, onTaskUpdated, 
                 </div>
 
                 {/* Delete Confirmation */}
-                {showDeleteConfirm && (
+                {showDeleteConfirm && canEditTask && (
                     <div className="px-6 py-3 bg-red-900/20 border-b border-red-900/40 flex items-center justify-between">
                         <span className="text-sm text-red-400">Are you sure you want to delete this task?</span>
                         <div className="flex gap-2">
@@ -260,7 +260,7 @@ export default function TaskDetailModal({ isOpen, onClose, task, onTaskUpdated, 
                 )}
 
                 {/* Task Info / Edit Form */}
-                {isEditing ? (
+                {isEditing && canEditTask ? (
                     <div className="px-6 py-4 border-b border-gray-700/50 space-y-3">
                         <div className="grid grid-cols-2 gap-3">
                             <div>

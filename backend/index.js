@@ -18,11 +18,13 @@ dotenv.config();
 
 const app = express();
 const httpServer = createServer(app);
+const frontendUrl = process.env.FRONTEND_URL || "http://localhost:3001";
+const port = process.env.PORT || 5000;
 
 // Socket.IO setup
 const io = new Server(httpServer, {
     cors: {
-        origin: "http://localhost:3001",
+        origin: frontendUrl,
         credentials: true
     }
 });
@@ -33,7 +35,7 @@ app.set('io', io);
 app.use(express.json());
 app.use(cookieParser());
 app.use(cors({
-    origin: "http://localhost:3001",
+    origin: frontendUrl,
     credentials: true
 }));
 
@@ -82,4 +84,4 @@ app.use("/api/activities", activityRoutes);
 app.use("/api/notifications", notificationRoutes);
 app.use("/api/search", searchRoutes);
 
-httpServer.listen(5000, () => console.log('Server running on 5000'));
+httpServer.listen(port, () => console.log(`Server running on ${port}`));
