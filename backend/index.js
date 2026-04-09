@@ -18,15 +18,32 @@ dotenv.config();
 
 const app = express();
 const httpServer = createServer(app);
-const frontendUrl = process.env.FRONTEND_URL || "http://localhost:3001";
+const allowedOrigins = (
+    "http://localhost:3000,http://localhost:3001,FRONTEND_URL"
+)
+    .split(",")
+    .map((origin) => origin.trim())
+    .filter(Boolean);
 const port = process.env.PORT || 5000;
+const isAllowedOrigin = (origin = "") =>
+    allowedOrigins.includes(origin) ||
+    /^https:\/\/flow-track-.*\.vercel\.app$/.test(origin);
+const corsOptions = {
+    origin(origin, callback) {
+        // Allow non-browser requests and approved browser origins.
+        if (!origin || isAllowedOrigin(origin)) {
+            return callback(null, true);
+        }
+
+        return callback(new Error(`Origin not allowed by CORS: ${origin}`));
+    },
+    credentials: true,
+    methods: ["GET", "POST", "PUT", "DELETE", "OPTIONS"],
+};
 
 // Socket.IO setup
 const io = new Server(httpServer, {
-    cors: {
-        origin: frontendUrl,
-        credentials: true
-    }
+    cors: corsOptions
 });
 
 // Make io accessible to controllers
@@ -34,10 +51,7 @@ app.set('io', io);
 
 app.use(express.json());
 app.use(cookieParser());
-app.use(cors({
-    origin: frontendUrl,
-    credentials: true
-}));
+app.use(cors(corsOptions));
 
 // Global request logger
 app.use((req, res, next) => {
